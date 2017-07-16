@@ -1,0 +1,336 @@
+\documentclass[12pt]{scrartcl}
+\usepackage{amssymb}
+\usepackage{longtable}
+\usepackage{url}
+\usepackage{listings}
+
+\usepackage{textcomp}
+\newcommand{\textapprox}{\raisebox{0.5ex}{\texttildelow}}
+\lstset{numbers=left, 
+        numberstyle=\tiny, 
+        basicstyle=\footnotesize\ttfamily,
+        breaklines=true,
+        numbersep=5pt,
+        xleftmargin=.25in,
+        xrightmargin=.25in} 
+
+\begin{document}
+
+\title{MiniASM Specification}
+\subtitle{Version: 0.0.1}
+\date{}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\section{Purpose}
+This document serves as a specification for a hypothetical instruction set, designed specifically for teaching low-level programming concepts.
+
+
+\section{Architecture}
+
+We assume a big-endian Von Neumann architecture wherein instructions are stored contiguously in memory starting at address 128. The word size of this hypothetical architecture is 16 bits. There are 32 1-word registers -- $R_0, R_1, \ldots, R_{31}$ -- of which the first 25 are general-purpose. Additionally, there is exactly 1024 bytes of contiguous, byte-addressable memory, starting from address zero (which will henceforth be referred to as ``Mem'' and treated as a 0-based array of bytes). 
+
+There is also an output device for displaying textual output (to which data written to the \textit{output stream} is sent), in addition to an input device for reading textual input (from which data read from the \textit{input stream} comes). 
+
+Finally, single instructions are always represented with single words. There are several different instruction formats, each pertaining to a specific instruction type.
+
+
+\subsection{Instruction Types}
+
+\subsubsection{Two-Register (R2) Type}
+
+\begin{center}
+  \begin{tabular}{|c|c|c|}
+    \hline
+    \textbf{6 bits} & \textbf{5 bits} & \textbf{5 bits} \\
+    \hline
+    Opcode & $R_D$ & $R_S$ \\
+    \hline
+  \end{tabular}
+\end{center}
+
+An example R2-type instruction is \texttt{add R2 R3}, which adds the contents of $R_2$ and $R_3$, then stores the result back into $R_2$. Another example is \texttt{mov R5 R4}, which copies the contents of $R_4$ into $R_5$.
+
+
+\subsubsection{One-Register (R1) Type}
+
+\begin{center}
+  \begin{tabular}{|c|c|c|}
+    \hline
+    \textbf{6 bits} & \textbf{5 bits} & \textbf{5 bits} \\
+    \hline
+    Opcode & $R_D$ & ? \\
+    \hline
+  \end{tabular}
+\end{center}
+
+An example R1-type instruction is \texttt{not R6}, which performs a bitwise-NOT operation on the contents of $R_6$, then puts the result back into $R_6$.
+
+
+\subsubsection{Zero-Register (R0) Type}
+
+\begin{center}
+  \begin{tabular}{|c|c|}
+    \hline
+    \textbf{6 bits} & \textbf{10 bits} \\
+    \hline
+    Opcode & ? \\
+    \hline
+  \end{tabular}
+\end{center}
+
+An example R0-type instruction is \texttt{halt}, which terminates program execution.
+
+
+\subsubsection{Immediate (I) Type}
+
+\begin{center}
+  \begin{tabular}{|c|c|c|}
+    \hline
+    \textbf{6 bits} & \textbf{5 bits} & \textbf{5 bits} \\
+    \hline
+    Opcode & $R_D$ & $I$ \\
+    \hline
+  \end{tabular}
+\end{center}
+
+An example I-type instruction is \texttt{movi R7 42}, which places the decimal value 42 into $R_7$.
+
+
+\subsubsection{Jump (J) Type}
+
+\begin{center}
+  \begin{tabular}{|c|c|}
+    \hline
+    \textbf{6 bits} & \textbf{10 bits} \\
+    \hline
+    Opcode & $J$ \\
+    \hline
+  \end{tabular}
+\end{center}
+
+An example J-type instruction is \texttt{jmp -4}, which jumps backwards 3 instructions relative to the current instruction.
+
+\subsection{Special-Purpose Registers}
+
+Registers $R_{26}, R_{37}, \ldots, R_{32}$ are specific-purpose registers.
+
+\begin{center}
+  \begin{tabular}{c c l}
+    \textbf{Register} & \textbf{Alt. Name} & \textbf{Purpose} \\
+    \hline \hline
+    $R_{26}$ & $R_{PC}$ & Program counter \\
+    $R_{27}$ & $R_{SP}$ & Stack pointer \\
+    $R_{28}$ & $R_{S}$  & Status register \\
+    $R_{29}$ & -        & Currently unused \\
+    $R_{30}$ & -        & Currently unused \\
+    $R_{31}$ & -        & Currently unused \\
+  \end{tabular}
+\end{center}
+
+It is important to note that although $R_{29}$, $R_{30}$ and $R_{31}$ are currently unused, they could be assigned a meaning in future updates to this specification. Hence, programs still should not use these registers as general-purpose registers.
+
+
+\subsubsection{Program Counter}
+
+$R_{26}$ stores the program counter, which always points to the \textit{next} instruction to be executed. The program counter is always incremented when an instruction is fetched. Jump instructions modify this register.
+
+
+\subsubsection{Stack Pointer}
+
+The stack grows downwards from the highest addressable memory location. $R_{27}$ stores the stack pointer, which always points to the element after the top of the stack. ``Element'' in this context means ``word'', because the stack uses words as its fundamental unit of transaction.
+
+
+\subsubsection{Status Register}
+
+$R_{28}$ is the status register, which has the following layout:
+
+\begin{center}
+  \begin{tabular}{| c | c | c | c | c | c | c | c | c | c | c | c | c | c | c | c |}
+    \hline
+    15 & 14 & 13 & 12 & 11 & 10 & 9 & 8 & 7 & 6 & 5 & 4 & 3 & 2 & 1 & 0 \\
+    \hline
+    $U$ & $U$ & $U$ & $U$ & $U$ & $U$ & $U$ & $U$ & $U$ & $U$ & $U$ & $U$ & $U$ & $U$ & $S$ & $Z$ \\
+    \hline
+  \end{tabular}
+\end{center}
+
+\noindent where
+
+\begin{itemize}
+	\item $Z$ is the \textit{zero bit}, which is 1 if and only if the result of the last arithmetic instruction was zero.
+	\item $S$ is the \textit{sign bit}, which is 1 if and only if the result of the last arithmetic instruction was negative.
+	\item $U$ indicates that the specified bit is currently unused.
+\end{itemize}
+
+
+\section{Instruction Listing}
+
+\begin{center}
+  \begin{longtable}{c c c r}
+    \textbf{Instruction} & \textbf{Opcode} & \textbf{Type} & \textbf{Effect} \\
+    \hline \hline
+    \texttt{halt} & 000000 & R0 & Terminate program \\
+    \texttt{not}  & 000001 & R1 & $R_D \gets$ \texttt{\textapprox} $R_D$ \\
+    \texttt{push} & 000010 & R1 & $\mathrm{Mem}[R_{SP}] \gets \mathrm{Hi}(R_D),$ \\
+    & & &                         $\mathrm{Mem}[R_{SP}+1] \gets \mathrm{Lo}(R_D),$ \\
+    & & &                         $R_{SP} \gets R_{SP} - 2$ \\
+    \texttt{pop}  & 000011 & R1 & $R_{SP} \gets R_{SP} + 2,$ \\
+    & & &                         $\mathrm{Hi}(R_D) \gets \mathrm{Mem}[R_{SP}]$ \\
+    & & &                         $\mathrm{Lo}(R_D) \gets \mathrm{Mem}[R_{SP}+1]$ \\
+    \texttt{print}& 000100 & R1 & See below \\
+    \texttt{read} & 000101 & R1 & See below \\
+    \texttt{sl}   & 000110 & R2 & $R_D \gets R_D$ \texttt{<<} $R_S$ \\
+    \texttt{sru}  & 000111 & R2 & $R_D \gets R_D$ \texttt{>>} $R_S$ \\
+    \texttt{srs}  & 001000 & R2 & $R_D \gets R_D$ \texttt{>>>} $R_S$ \\
+    \texttt{mov}  & 001001 & R2 & $R_D \gets R_S$ \\
+    \texttt{add}  & 001010 & R2 & $R_D \gets R_D + R_S$ \\
+    \texttt{sub}  & 001011 & R2 & $R_D \gets R_D - R_S$ \\
+    \texttt{and}  & 001100 & R2 & $R_D \gets R_D$ \texttt{\&} $R_S$ \\
+    \texttt{or}   & 001101 & R2 & $R_D \gets R_D$ \texttt{|} $R_S$ \\
+    \texttt{xor}  & 001110 & R2 & $R_D \gets R_D$ \texttt{\^{}} $R_S$ \\
+    \texttt{cmp}  & 001111 & R2 & $Z \gets R_D \stackrel{?}{=} R_S,$ \\
+    & & &                         $S \gets R_D \stackrel{?}{<} R_S$ \\
+    \texttt{sw}   & 010000 & R2 & $\mathrm{Mem}[R_D] \gets \mathrm{Hi}(R_S)$ \\
+    & & &                         $\mathrm{Mem}[R_D+1] \gets \mathrm{Lo}(R_S)$ \\
+    \texttt{lw}   & 010001 & R2 & $\mathrm{Hi}(R_D) \gets \mathrm{Mem}[R_S]$ \\
+    & & &                         $\mathrm{Lo}(R_D) \gets \mathrm{Mem}[R_S+1]$ \\
+    \texttt{sb}   & 010010 & R2 & $\mathrm{Mem}[R_D] \gets \mathrm{Lo}(R_S)$ \\
+    \texttt{lb}   & 010011 & R2 & $R_D \gets \mathrm{Mem}[R_S]$ \\
+    \texttt{movi} & 010100 & I  & $R_D \gets I$ \\
+    \texttt{addi} & 010101 & I  & $R_D \gets R_D + I$ \\
+    \texttt{subi} & 010110 & I  & $R_D \gets R_D - I$ \\
+    \texttt{andi} & 010111 & I  & $R_D \gets R_D$ \texttt{\&} $I$ \\
+    \texttt{ori}  & 011000 & I  & $R_D \gets R_D$ \texttt{|} $I$ \\
+    \texttt{xori} & 011001 & I  & $R_D \gets R_D$ \texttt{\^{}} $I$ \\
+    \texttt{jmp}  & 011010 & J  & $R_{PC} \gets R_{PC} + J$ \\
+    \texttt{jmpeq}& 011011 & J  & \texttt{if} $Z = 1$ \texttt{then:} \\
+    & & &                         $R_{PC} \gets R_{PC} + J$ \\
+    \texttt{jmpne}& 011100 & J  & \texttt{if} $Z = 0$ \texttt{then:} \\
+    & & &                         $R_{PC} \gets R_{PC} + J$ \\
+    \texttt{jmpgt}& 011101 & J  & \texttt{if} $S = 1$ \texttt{and} $Z = 0$ \texttt{then:} \\
+    & & &                         $R_{PC} \gets R_{PC} + J$ \\
+    \texttt{jmplt}& 011110 & J  & \texttt{if} $S = 1$ \texttt{then:} \\
+    & & &                         $R_{PC} \gets R_{PC} + J$ \\
+    \texttt{jmpge}& 011111 & J  & \texttt{if} $S = 0$ \texttt{then:} \\
+    & & &                         $R_{PC} \gets R_{PC} + J$ \\
+    \texttt{jmple}& 100000 & J  & \texttt{if} $S = 1$ \texttt{or} $Z = 0$ \texttt{then:} \\
+    & & &                         $R_{PC} \gets R_{PC} + J$ \\
+  \end{longtable}
+\end{center}
+
+The \texttt{print} instruction prints the ASCII character located at $\mathrm{Mem}[R_d]$.
+
+The \texttt{read} instruction performs a non-blocking 1-byte read from the input stream and places the result into $\mathrm{Mem}[R_d]$. If there is nothing to be read, a 0-byte is placed in $\mathrm{Mem}[R_d]$
+
+Note that overflow in addition or subtraction is defined behavior, and simply results in a wrap-around.
+
+
+\section{Program Execution}
+
+After the program code is loaded at memory address 128, program execution commences as follows:
+
+\begin{enumerate}
+	\item $R_{PC} \gets 128$
+	\item Fetch instruction $I = \mathrm{Mem}[R_{PC}]$.
+	\item $R_{PC} \gets R_{PC} + 2$
+	\item Execute $I$.
+	\item Return to step 2, unless program terminated from execution of \texttt{halt} or from error.
+\end{enumerate}
+
+\subsection{Program Termination}
+Program termination is always accompanied by a \textit{status}, which is either ``success'' or ``failure''. A ``success'' status is obtained upon the execution of a \texttt{halt} instruction, and a ``failure'' status is obtained when an error condition is encountered.
+
+\subsection{Error Conditions}
+Encountering an error condition results in immediate program termination with a ``failure'' status. The following error conditions exist:
+
+\begin{itemize}
+	\item Attempting to execute an unknown opcode.
+	\item Attempting to access a nonexistent memory location. This includes jumping to a nonexistent address.
+	\item Attempting to execute a \texttt{sw} or \texttt{lw} instruction with a memory address that is not word-aligned (i.e. divisible by 2).
+\end{itemize}
+
+
+\section{Sample Programs}
+\subsection{Factorial}
+The following program finds the factorial of the value in register $R_1$ and places the result back into $R_1$.
+
+\begin{lstlisting}
+# Factorial program
+# Compiled: 500050275061244350803c406c06288358416bf624443c616c0454616bea24220000
+
+MOVI  R0 0  # constant 0
+MOVI  R1 7  # number to factorial-ize
+
+MOVI  R3 1  # counter to target
+MOV   R2 R3 # holds running factorial
+
+fact:
+MOVI  R4 0  # result of this multiplication
+
+mul:  # mul R2 R3; destroy R2
+CMP   R2 R0
+JMPEQ out_mul
+ADD   R4 R3
+SUBI  R2 1
+JMP   mul
+out_mul:
+MOV   R2 R4
+
+CMP   R3 R1
+JMPEQ out_fact
+ADDI  R3 1
+JMP   fact
+
+out_fact:
+mov   R1 R2
+
+HALT	
+\end{lstlisting}
+
+\subsection{String reversal}
+The following program reads the standard input and prints the reverse to the standard output. For example, ``hello world'' would become ``dlrow olleh''.
+
+\begin{lstlisting}
+# String reversal program
+# Compiled: 5000502014204c413c406c0454216bf410203c206c0458216bf60000
+
+MOVI  R0 0  # constant 0
+MOVI  R1 0  # pointer into memory
+
+# read stdin
+loop1:
+READ  R1
+LB    R2 R1
+CMP   R2 R0
+JMPEQ out1
+ADDI  R1 1
+JMP   loop1
+out1:
+
+# write reverse to stdout
+loop2:
+PRINT R1
+CMP   R1 R0
+JMPEQ out2
+SUBI  R1 1
+JMP   loop2
+out2:
+
+HALT	
+\end{lstlisting}
+
+
+
+
+\section{Acknowledgements}
+
+This concept is based on work done by Christopher Woodall. See \url{https://github.com/cwoodall/sx86-emulator}.
+
+
+\end{document}
+
+

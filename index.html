@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="css/bootstrap.min.css" rel="stylesheet">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+<script src="js/bootstrap.min.js"></script>
+
+<title>MiniASM</title>
+
+<style>
+.grid {
+    margin: 1em auto;
+    border-collapse: collapse;
+}
+
+.grid td {
+    cursor: pointer;
+    width:  10px;
+    height: 10px;
+    border: 0.5px solid #fff;
+    text-align: center;
+    font-family: "Lucida Console", Monaco, monospace;
+    font-size: 13px;
+}
+
+.grid td.clicked {
+    background-color: yellow;
+    font-weight: bold;
+    color: red;
+}
+
+textarea {
+    resize: none;
+    font-family: "Lucida Console", Monaco, monospace;
+}
+
+.fa-refresh {
+    cursor: pointer;
+}
+</style>
+
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
+<link rel="stylesheet" href="css/font-awesome-animation.min.css">
+</head>
+
+<body>
+<div class="container">
+    <h1>MiniASM Sandbox</h1>
+    <div class="row">
+        <div class="col-lg-6" id="ram"></div>
+        <div class="col-lg-6">
+            <h3>Register File</h3>
+
+            <div id="regs">
+            </div>
+
+            <div class="row">
+                <div class="col-xs-3" id="regs_col_0"></div>
+                <div class="col-xs-3" id="regs_col_1"></div>
+                <div class="col-xs-3" id="regs_col_2"></div>
+                <div class="col-xs-3" id="regs_col_3"></div>
+            </div>
+
+            <h3>Selected Memory Cell</h3>
+            <label style="font:13px Lucida Console;"><b>address:</b></label>
+            <label id="mem-addr" style="font:13px Lucida Console;">0</label>
+            <i class="fa fa-circle" style="color:blue"></i><br />
+            <label style="font:13px Lucida Console;"><b>value:&nbsp;&nbsp;</b></label>
+            <label id="mem-val" style="font:13px Lucida Console;">0</label><br />
+
+            <br />
+
+            <ul id="bottom-pane" class="nav nav-tabs">
+                <li class="active">
+                    <a href = "#code-tab" data-toggle="tab">
+                        Code
+                    </a>
+                </li>
+
+                <li>
+                    <a href = "#io" data-toggle="tab">
+                        I/O
+                    </a>
+                </li>
+
+                <li>
+                    <a href = "#about" data-toggle="tab">
+                        About
+                    </a>
+                </li>
+            </ul>
+
+            <div id = "bottom-pane-content" class = "tab-content">
+                <div class="tab-pane fade in active" id="code-tab">
+                    <h3>Program Code</h3>
+                    <textarea rows="4" cols="50" id="code" placeholder="Paste code string here."></textarea><br />
+                    <button onclick="loadInput();">load</button>
+                    <button onclick="execInput();">execute</button>
+                    <button onclick="stepInput();">step</button>
+                    <button id="pause-button" onclick="togglePaused();">pause</button>
+                    <br />
+                    <br />
+                    <div id="message"></div>
+                </div>
+
+                <div class="tab-pane fade" id="io">
+                    <b>Standard Out&nbsp;&nbsp;</b><i class="fa fa-refresh faa-spin animated-hover" onclick="stdoutReset();"></i><br />
+                    <label id="stdout" style="font:13px Lucida Console;"></label><br />
+                    <br />
+                    <b>Standard In&nbsp;&nbsp;</b><i class="fa fa-refresh faa-spin animated-hover" onclick="stdinReset();"></i><br />
+                    <textarea rows="2" cols="50" id="stdin"></textarea><br />
+                </div>
+
+                <div class="tab-pane fade" id="about">
+                    <p>MiniASM &ndash; a tool for teaching low-level programming concepts</p>
+                    <p><a href="mini-asm-spec.pdf" target="_blank">MiniASM Specification</a> (Version: 0.0.1)</p>
+                    <p>Copyright &copy; 2016 <a href="http://ars.me" target="_blank">A. R. Shajii</a> under <a href="https://opensource.org/licenses/MIT" target="_blank">MIT License</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="vm.js" type="text/javascript"></script>
+<script>
+$(document).ready(function(){
+    $("[rel=tooltip]").tooltip({placement: "above"});
+});
+
+const ICON_MEM_CELL = '<i class="fa fa-circle-o" style="color:gray" rel="tooltip">&nbsp;</i>';
+const ICON_ERROR    = '<i class="fa fa-warning" style="color:red"></i>';
+const ICON_SUCCESS  = '<i class="fa fa-check" style="color:green"></i>';
+const ICON_PROGRESS = '<i class="fa fa-cog fa-spin"></i>';
+const ICON_PAUSED   = '<i class="fa fa-pause-circle"></i>';
+
+const CLASS_FILLED   = "fa fa-circle"
+const CLASS_UNFILLED = "fa fa-circle-o"
+
+var status = 0;
+
+function getIcon() {
+    if (status == LOAD_SUCCESSFUL || status == STAT_TERM_SUCCESS)
+        return ICON_SUCCESS;
+    else if (status == STAT_IN_PROGRESS)
+        return ICON_PROGRESS;
+    else if (status == STAT_PAUSED)
+        return ICON_PAUSED;
+    else
+        return ICON_ERROR;
+}
+
+function getCellColor(addr) {
+    if (regFile[R_PC] == addr)
+        return "black";
+    else
+        return (mem[addr] ? "red" : "gray");
+}
+
+function getCellClass(addr) {
+    return ((regFile[R_PC] == addr) || mem[addr]) ? CLASS_FILLED : CLASS_UNFILLED;
+}
+
+function updateCellElem(elem, addr) {
+    elem.style.color = getCellColor(addr);
+    elem.className = getCellClass(addr);
+}
+
+function setClickedCellElem(elem) {
+    elem.style.color = "blue";
+    elem.className = CLASS_FILLED;
+}
+
+function setPCCellElem(elem) {
+    elem.style.color = "black";
+    elem.className = CLASS_FILLED;
+}
+
+function updateSelectedCellInfo(addr, val) {
+    document.getElementById("mem-addr").innerHTML = addr;
+    document.getElementById("mem-val").innerHTML = val + ((32 <= val && val <= 126) ? " '" + String.fromCharCode(val) + "'" : "");
+}
+
+var memCells = new Array(MEM_SIZE);
+
+var memDim = 32;
+var lastClicked;
+var lastAddr = 0;
+var grid = clickableGrid(memDim, memDim, function(el, row, col) {
+    var addr = row*memDim + col;
+    var val = mem[addr];
+    updateSelectedCellInfo(addr, val);
+
+    if (lastClicked)
+        updateCellElem(lastClicked.childNodes[0], lastAddr);
+
+    setClickedCellElem(el.childNodes[0]);
+    lastClicked = el;
+    lastAddr = addr;
+});
+
+document.getElementById("ram").appendChild(grid);
+
+function clickableGrid(rows, cols, callback) {
+    var grid = document.createElement("table");
+    grid.className = "grid";
+    for (var r = 0; r < rows; r++) {
+        var tr = grid.appendChild(document.createElement("tr"));
+        for (var c = 0; c < cols; c++) {
+            var cell = tr.appendChild(document.createElement("td"));
+            memCells[r*cols + c] = cell;
+            cell.innerHTML = ICON_MEM_CELL;
+            cell.addEventListener("click", (function(el, r, c) {
+                return function() {
+                    callback(el, r, c);
+                }
+            })(cell, r, c), false);
+        }
+    }
+    return grid;
+}
+
+/* http://stackoverflow.com/questions/57803 */
+function toHex(n) {
+    return (n >>> 0).toString(16);
+}
+
+function makeRegLabel(reg) {
+    var pad = reg < 10 ? "&nbsp;" : "";
+    return "<b>" + reg + pad + "</b>" + " 0x" + ("0000" + toHex(regFile[reg])).slice(-4);
+}
+
+for (var i = 0; i < NUM_REGS; i++) {
+    var regs = document.getElementById("regs_col_" + Math.floor(i/8));
+    var reg = document.createElement("label");
+    var br = document.createElement("br");
+    reg.id = "r" + i;
+    reg.innerHTML = makeRegLabel(i);
+    reg.style.font = "13px Lucida Console";
+    regs.appendChild(reg);
+
+    if (i == R_PC) {
+        var space = document.createElement("label");
+        space.innerHTML = "&nbsp;";
+
+        var icon = document.createElement("i");
+        icon.className = "fa fa-circle";
+        icon.style.color = "black";
+
+        regs.appendChild(space);
+        regs.appendChild(icon);
+    }
+
+    regs.appendChild(br);
+}
+
+var lastPC = CODE_START;
+regChangeCallback = function (reg) {
+    var regElem = document.getElementById("r" + reg);
+    regElem.innerHTML = makeRegLabel(reg);
+
+    if (reg == R_PC) {
+        if (lastPC != lastAddr)
+            updateCellElem(memCells[lastPC].childNodes[0], lastPC);
+        if (regFile[R_PC] != lastAddr)
+            setPCCellElem(memCells[regFile[R_PC]].childNodes[0]);
+        lastPC = regFile[R_PC];
+    }
+}
+
+for (var i = 0; i < NUM_REGS; i++)
+    regChangeCallback(i);
+
+memChangeCallback = function (addr) {
+    if (addr == lastAddr)
+        updateSelectedCellInfo(addr, mem[addr]);
+    else
+        updateCellElem(memCells[addr].childNodes[0], addr);
+
+    var cellStr = "Mem[" + addr + "] = " + mem[addr];
+    $(memCells[addr].childNodes[0]).attr("data-original-title", cellStr).tooltip("fixTitle");
+}
+
+stdoutChangeCallback = function () {
+    document.getElementById("stdout").innerText = stdout;
+}
+
+stdinChangeCallback = function () {
+    document.getElementById("stdin").value = stdin;
+}
+
+function stdoutReset() {
+    stdout = "";
+    stdoutChangeCallback();
+}
+
+function stdinReset() {
+    stdin = "";
+    stdinChangeCallback();
+}
+
+function stdinUpdate() {
+    stdin = document.getElementById("stdin").value;
+}
+
+var stdinElem = document.getElementById("stdin");
+if (stdinElem.addEventListener) {
+    stdinElem.addEventListener("input", function() {
+        stdinUpdate();
+    }, false);
+} else if (stdinElem.attachEvent) {
+    stdinElem.attachEvent("onpropertychange", function() {
+        stdinUpdate();
+    });
+}
+
+for (var i = 0; i < MEM_SIZE; i++)
+    memChangeCallback(i);
+
+function setMessage() {
+    document.getElementById("message").innerHTML = ("<p>" + getIcon() + " " + getErrorMessage(status) + "</p>");
+}
+
+function loadInput() {
+    initRegs();
+    initMem();
+
+    status = loadCode(document.getElementById("code").value);
+    setMessage();
+}
+
+function stepInput() {
+    status = step();
+    setMessage();
+}
+
+function execInput() {
+    initRegs();
+    initMem();
+    status = loadCode(document.getElementById("code").value);
+
+    if (status != LOAD_SUCCESSFUL) {
+        setMessage();
+        return;
+    }
+
+    status = execute();
+    setMessage();
+}
+
+var prePauseStatus;
+
+function togglePaused() {
+    paused = !paused;
+
+    if (paused) {
+        prePauseStatus = status;
+        status = STAT_PAUSED;
+        setMessage();
+        document.getElementById("pause-button").innerHTML = "unpause";
+    } else {
+        status = prePauseStatus;
+        setMessage();
+        document.getElementById("pause-button").innerHTML = "pause";
+        if (status == STAT_IN_PROGRESS) {
+            status = execute()
+            setMessage();
+        }
+    }
+}
+</script>
+
+</body>
+</html>
+
