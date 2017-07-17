@@ -64,10 +64,10 @@ const ERROR_CODE_STR_TOO_LONG       = -3;
 
 const PROGRAM_STEP_LIMIT = 10000;
 
-var regFile = new Uint16Array(NUM_REGS);
-var mem = new Uint8Array(MEM_SIZE);
-var stdout = "";
-var stdin  = "";
+let regFile = new Uint16Array(NUM_REGS);
+let mem = new Uint8Array(MEM_SIZE);
+let progStdout = "";
+let progStdin  = "";
 
 const STDOUT_MAX_LEN = 128;
 
@@ -102,15 +102,15 @@ function getErrorMessage(status) {
     }
 }
 
-var paused = false;
+let paused = false;
 
-var regChangeCallback = function (reg) {};
-var memChangeCallback = function (addr) {};
-var stdoutChangeCallback = function () {};
-var stdinChangeCallback = function () {};
+let regChangeCallback = function (reg) {};
+let memChangeCallback = function (addr) {};
+let stdoutChangeCallback = function () {};
+let stdinChangeCallback = function () {};
 
 function initRegs() {
-    for (var i = 0; i < NUM_REGS; i++) {
+    for (let i = 0; i < NUM_REGS; i++) {
         regFile[i] = 0;
         regChangeCallback(i);
     }
@@ -122,7 +122,7 @@ function initRegs() {
 }
 
 function initMem() {
-    for (var i = 0; i < MEM_SIZE; i++) {
+    for (let i = 0; i < MEM_SIZE; i++) {
         mem[i] = 0;
         memChangeCallback(i);
     }
@@ -138,9 +138,9 @@ function loadCode(codeStr) {
     if (codeStr.length > CODE_MAX)
         return ERROR_CODE_STR_TOO_LONG;
 
-    var v = codeStr.match(/.{1,4}/g);
+    let v = codeStr.match(/.{1,4}/g);
 
-    for (var i = 0; i < v.length; i++) {
+    for (let i = 0; i < v.length; i++) {
         ins = parseInt(v[i], 16);
         mem[CODE_START + 2*i] = ((ins & 0xFF00) >> 8);
         mem[CODE_START + 2*i + 1] = (ins & 0x00FF);
@@ -157,7 +157,7 @@ function step() {
     } else if (regFile[R_PC] % 2 !== 0) {
         return STAT_TERM_FAILURE_MEM_ALIGN;
     } else {
-        var ins = ((((mem[regFile[R_PC]] >>> 0) & 0xFF) << 8) | ((mem[regFile[R_PC]+1] >>> 0) & 0xFF));
+        let ins = ((((mem[regFile[R_PC]] >>> 0) & 0xFF) << 8) | ((mem[regFile[R_PC]+1] >>> 0) & 0xFF));
         regFile[R_PC] += 2;
         regChangeCallback(R_PC);
         return executeInstruction(ins);
@@ -165,8 +165,8 @@ function step() {
 }
 
 function execute() {
-    var stepCount = 0;
-    var status = STAT_IN_PROGRESS;
+    let stepCount = 0;
+    let status = STAT_IN_PROGRESS;
 
     while (status === STAT_IN_PROGRESS) {
         if (stepCount === PROGRAM_STEP_LIMIT)
@@ -183,9 +183,9 @@ function execute() {
 
 function read(R_D) {
     console.assert(regFile[R_D] >= 0 && regFile[R_D] < MEM_SIZE, "read address out of bounds");
-    mem[regFile[R_D]] = stdin.length ? stdin.charCodeAt(0) : 0;
+    mem[regFile[R_D]] = progStdin.length ? progStdin.charCodeAt(0) : 0;
     memChangeCallback(regFile[R_D]);
-    stdin = stdin.substring(1);
+    progStdin = progStdin.substring(1);
     stdinChangeCallback();
 }
 
@@ -251,9 +251,9 @@ function executeInstruction(ins) {
             if (regFile[R_D] < 0 || regFile[R_D] >= MEM_SIZE)
                 return STAT_TERM_FAILURE_MEM_BOUNDS;
 
-            stdout += String.fromCharCode(mem[regFile[R_D]]);
-            if (stdout.length > STDOUT_MAX_LEN)
-                stdout = stdout.slice(-STDOUT_MAX_LEN);
+            progStdout += String.fromCharCode(mem[regFile[R_D]]);
+            if (progStdout.length > STDOUT_MAX_LEN)
+                progStdout = progStdout.slice(-STDOUT_MAX_LEN);
 
             stdoutChangeCallback();
             break;

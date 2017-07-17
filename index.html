@@ -93,6 +93,12 @@ label {
                 </li>
 
                 <li>
+                    <a href = "#compiler" data-toggle="tab">
+                        Compiler
+                    </a>
+                </li>
+
+                <li>
                     <a href = "#about" data-toggle="tab">
                         About
                     </a>
@@ -120,6 +126,16 @@ label {
                     <textarea rows="2" cols="50" id="stdin"></textarea><br />
                 </div>
 
+                <div class="tab-pane fade" id="compiler">
+                    <h3>Compiler</h3>
+                    <textarea rows="4" cols="50" id="source"></textarea><br />
+                    <button onclick="compileSource();">compile</button>
+                    <button onclick="pasteCompiled();">paste to program</button>
+                    <br />
+                    <br />
+                    <div id="compilerMessage"></div>
+                </div>
+
                 <div class="tab-pane fade" id="about">
                     <p>MiniASM &ndash; a tool for teaching low-level programming concepts</p>
                     <p><a href="mini-asm-spec.pdf" target="_blank">MiniASM Specification</a> (Version: 0.0.1)</p>
@@ -131,6 +147,7 @@ label {
 </div>
 
 <script src="vm.js" type="text/javascript"></script>
+<script src="compiler.js" type="text/javascript"></script>
 <script>
 $(document).ready(function(){
     $("[rel=tooltip]").tooltip({placement: "above"});
@@ -145,7 +162,8 @@ const ICON_PAUSED   = '<i class="fa fa-pause-circle"></i>';
 const CLASS_FILLED   = "fa fa-circle"
 const CLASS_UNFILLED = "fa fa-circle-o"
 
-var status = 0;
+let status = 0;
+let lastCompiled = "";
 
 function getIcon() {
     if (status == LOAD_SUCCESSFUL || status == STAT_TERM_SUCCESS)
@@ -189,14 +207,14 @@ function updateSelectedCellInfo(addr, val) {
     document.getElementById("mem-val").innerHTML = val + ((32 <= val && val <= 126) ? " '" + String.fromCharCode(val) + "'" : "");
 }
 
-var memCells = new Array(MEM_SIZE);
+let memCells = new Array(MEM_SIZE);
 
-var memDim = 32;
-var lastClicked;
-var lastAddr = 0;
-var grid = clickableGrid(memDim, memDim, function(el, row, col) {
-    var addr = row*memDim + col;
-    var val = mem[addr];
+let memDim = 32;
+let lastClicked;
+let lastAddr = 0;
+let grid = clickableGrid(memDim, memDim, function(el, row, col) {
+    let addr = row*memDim + col;
+    let val = mem[addr];
     updateSelectedCellInfo(addr, val);
 
     if (lastClicked)
@@ -210,12 +228,12 @@ var grid = clickableGrid(memDim, memDim, function(el, row, col) {
 document.getElementById("ram").appendChild(grid);
 
 function clickableGrid(rows, cols, callback) {
-    var grid = document.createElement("table");
+    let grid = document.createElement("table");
     grid.className = "grid";
-    for (var r = 0; r < rows; r++) {
-        var tr = grid.appendChild(document.createElement("tr"));
-        for (var c = 0; c < cols; c++) {
-            var cell = tr.appendChild(document.createElement("td"));
+    for (let r = 0; r < rows; r++) {
+        let tr = grid.appendChild(document.createElement("tr"));
+        for (let c = 0; c < cols; c++) {
+            let cell = tr.appendChild(document.createElement("td"));
             memCells[r*cols + c] = cell;
             cell.innerHTML = ICON_MEM_CELL;
             cell.addEventListener("click", (function(el, r, c) {
@@ -223,6 +241,11 @@ function clickableGrid(rows, cols, callback) {
                     callback(el, r, c);
                 }
             })(cell, r, c), false);
+
+            if (r === 0 && c === 0) {  // set (0,0) as initially clicked
+                setClickedCellElem(cell.childNodes[0]);
+                lastClicked = cell;
+            }
         }
     }
     return grid;
@@ -234,24 +257,24 @@ function toHex(n) {
 }
 
 function makeRegLabel(reg) {
-    var pad = reg < 10 ? "&nbsp;" : "";
+    let pad = reg < 10 ? "&nbsp;" : "";
     return "<b>" + reg + pad + "</b>" + " 0x" + ("0000" + toHex(regFile[reg])).slice(-4);
 }
 
-for (var i = 0; i < NUM_REGS; i++) {
-    var regs = document.getElementById("regs_col_" + Math.floor(i/8));
-    var reg = document.createElement("label");
-    var br = document.createElement("br");
+for (let i = 0; i < NUM_REGS; i++) {
+    let regs = document.getElementById("regs_col_" + Math.floor(i/8));
+    let reg = document.createElement("label");
+    let br = document.createElement("br");
     reg.id = "r" + i;
     reg.innerHTML = makeRegLabel(i);
     reg.style.font = "13px Lucida Console";
     regs.appendChild(reg);
 
     if (i == R_PC) {
-        var space = document.createElement("label");
+        let space = document.createElement("label");
         space.innerHTML = "&nbsp;";
 
-        var icon = document.createElement("i");
+        let icon = document.createElement("i");
         icon.className = "fa fa-circle";
         icon.style.color = "black";
 
@@ -262,9 +285,9 @@ for (var i = 0; i < NUM_REGS; i++) {
     regs.appendChild(br);
 }
 
-var lastPC = CODE_START;
+let lastPC = CODE_START;
 regChangeCallback = function (reg) {
-    var regElem = document.getElementById("r" + reg);
+    let regElem = document.getElementById("r" + reg);
     regElem.innerHTML = makeRegLabel(reg);
 
     if (reg == R_PC) {
@@ -276,7 +299,7 @@ regChangeCallback = function (reg) {
     }
 }
 
-for (var i = 0; i < NUM_REGS; i++)
+for (let i = 0; i < NUM_REGS; i++)
     regChangeCallback(i);
 
 memChangeCallback = function (addr) {
@@ -285,33 +308,33 @@ memChangeCallback = function (addr) {
     else
         updateCellElem(memCells[addr].childNodes[0], addr);
 
-    var cellStr = "Mem[" + addr + "] = " + mem[addr];
+    let cellStr = "Mem[" + addr + "] = " + mem[addr];
     $(memCells[addr].childNodes[0]).attr("data-original-title", cellStr).tooltip("fixTitle");
 }
 
 stdoutChangeCallback = function () {
-    document.getElementById("stdout").innerText = stdout;
+    document.getElementById("stdout").innerText = progStdout;
 }
 
 stdinChangeCallback = function () {
-    document.getElementById("stdin").value = stdin;
+    document.getElementById("stdin").value = progStdin;
 }
 
 function stdoutReset() {
-    stdout = "";
+    progStdout = "";
     stdoutChangeCallback();
 }
 
 function stdinReset() {
-    stdin = "";
+    progStdin = "";
     stdinChangeCallback();
 }
 
 function stdinUpdate() {
-    stdin = document.getElementById("stdin").value;
+    progStdin = document.getElementById("stdin").value;
 }
 
-var stdinElem = document.getElementById("stdin");
+let stdinElem = document.getElementById("stdin");
 if (stdinElem.addEventListener) {
     stdinElem.addEventListener("input", function() {
         stdinUpdate();
@@ -322,7 +345,7 @@ if (stdinElem.addEventListener) {
     });
 }
 
-for (var i = 0; i < MEM_SIZE; i++)
+for (let i = 0; i < MEM_SIZE; i++)
     memChangeCallback(i);
 
 function setMessage() {
@@ -356,7 +379,7 @@ function execInput() {
     setMessage();
 }
 
-var prePauseStatus;
+let prePauseStatus;
 
 function togglePaused() {
     paused = !paused;
@@ -375,6 +398,22 @@ function togglePaused() {
             setMessage();
         }
     }
+}
+
+function compileSource() {
+    let lines = document.getElementById("source").value;
+    let result = compile(lines);
+
+    if (result == null) {
+        document.getElementById("compilerMessage").innerHTML = ("<p>" + ICON_ERROR + " " + compilerErrorMessage + "</p>");
+    } else {
+        document.getElementById("compilerMessage").innerHTML = ("<p>" + ICON_SUCCESS + " Compiled program: " + result + "</p>");
+        lastCompiled = result;
+    }
+}
+
+function pasteCompiled() {
+    document.getElementById("code").value = lastCompiled;
 }
 </script>
 

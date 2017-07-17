@@ -6,13 +6,13 @@
 
 \usepackage{textcomp}
 \newcommand{\textapprox}{\raisebox{0.5ex}{\texttildelow}}
-\lstset{numbers=left, 
-        numberstyle=\tiny, 
+\lstset{numbers=left,
+        numberstyle=\tiny,
         basicstyle=\footnotesize\ttfamily,
         breaklines=true,
         numbersep=5pt,
         xleftmargin=.25in,
-        xrightmargin=.25in} 
+        xrightmargin=.25in}
 
 \begin{document}
 
@@ -31,9 +31,9 @@ This document serves as a specification for a hypothetical instruction set, desi
 
 \section{Architecture}
 
-We assume a big-endian Von Neumann architecture wherein instructions are stored contiguously in memory starting at address 128. The word size of this hypothetical architecture is 16 bits. There are 32 1-word registers -- $R_0, R_1, \ldots, R_{31}$ -- of which the first 25 are general-purpose. Additionally, there is exactly 1024 bytes of contiguous, byte-addressable memory, starting from address zero (which will henceforth be referred to as ``Mem'' and treated as a 0-based array of bytes). 
+We assume a big-endian Von Neumann architecture wherein instructions are stored contiguously in memory starting at address 128. The word size of this hypothetical architecture is 16 bits. There are 32 1-word registers -- $R_0, R_1, \ldots, R_{31}$ -- of which the first 25 are general-purpose. Additionally, there is exactly 1024 bytes of contiguous, byte-addressable memory, starting from address zero (which will henceforth be referred to as ``Mem'' and treated as a 0-based array of bytes).
 
-There is also an output device for displaying textual output (to which data written to the \textit{output stream} is sent), in addition to an input device for reading textual input (from which data read from the \textit{input stream} comes). 
+There is also an output device for displaying textual output (to which data written to the \textit{output stream} is sent), in addition to an input device for reading textual input (from which data read from the \textit{input stream} comes).
 
 Finally, single instructions are always represented with single words. There are several different instruction formats, each pertaining to a specific instruction type.
 
@@ -288,7 +288,7 @@ JMP   fact
 out_fact:
 mov   R1 R2
 
-HALT	
+HALT
 \end{lstlisting}
 
 \subsection{String reversal}
@@ -320,7 +320,7 @@ SUBI  R1 1
 JMP   loop2
 out2:
 
-HALT	
+HALT
 \end{lstlisting}
 
 
