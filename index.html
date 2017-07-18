@@ -166,25 +166,25 @@ let status = 0;
 let lastCompiled = "";
 
 function getIcon() {
-    if (status == LOAD_SUCCESSFUL || status == STAT_TERM_SUCCESS)
+    if (status === LOAD_SUCCESSFUL || status === STAT_TERM_SUCCESS)
         return ICON_SUCCESS;
-    else if (status == STAT_IN_PROGRESS)
+    else if (status === STAT_IN_PROGRESS)
         return ICON_PROGRESS;
-    else if (status == STAT_PAUSED)
+    else if (status === STAT_PAUSED || status === STAT_BREAKPOINT)
         return ICON_PAUSED;
     else
         return ICON_ERROR;
 }
 
 function getCellColor(addr) {
-    if (regFile[R_PC] == addr)
+    if (regFile[R_PC] === addr)
         return "black";
     else
         return (mem[addr] ? "red" : "gray");
 }
 
 function getCellClass(addr) {
-    return ((regFile[R_PC] == addr) || mem[addr]) ? CLASS_FILLED : CLASS_UNFILLED;
+    return ((regFile[R_PC] === addr) || mem[addr]) ? CLASS_FILLED : CLASS_UNFILLED;
 }
 
 function updateCellElem(elem, addr) {
@@ -270,7 +270,7 @@ for (let i = 0; i < NUM_REGS; i++) {
     reg.style.font = "13px Lucida Console";
     regs.appendChild(reg);
 
-    if (i == R_PC) {
+    if (i === R_PC) {
         let space = document.createElement("label");
         space.innerHTML = "&nbsp;";
 
@@ -290,10 +290,10 @@ regChangeCallback = function (reg) {
     let regElem = document.getElementById("r" + reg);
     regElem.innerHTML = makeRegLabel(reg);
 
-    if (reg == R_PC) {
-        if (lastPC != lastAddr)
+    if (reg === R_PC) {
+        if (lastPC !== lastAddr && 0 <= lastPC && lastPC < MEM_SIZE)
             updateCellElem(memCells[lastPC].childNodes[0], lastPC);
-        if (regFile[R_PC] != lastAddr)
+        if (regFile[R_PC] !== lastAddr && 0 <= regFile[R_PC] && regFile[R_PC] < MEM_SIZE)
             setPCCellElem(memCells[regFile[R_PC]].childNodes[0]);
         lastPC = regFile[R_PC];
     }
@@ -303,7 +303,7 @@ for (let i = 0; i < NUM_REGS; i++)
     regChangeCallback(i);
 
 memChangeCallback = function (addr) {
-    if (addr == lastAddr)
+    if (addr === lastAddr)
         updateSelectedCellInfo(addr, mem[addr]);
     else
         updateCellElem(memCells[addr].childNodes[0], addr);
@@ -366,15 +366,6 @@ function stepInput() {
 }
 
 function execInput() {
-    initRegs();
-    initMem();
-    status = loadCode(document.getElementById("code").value);
-
-    if (status != LOAD_SUCCESSFUL) {
-        setMessage();
-        return;
-    }
-
     status = execute();
     setMessage();
 }
@@ -393,7 +384,7 @@ function togglePaused() {
         status = prePauseStatus;
         setMessage();
         document.getElementById("pause-button").innerHTML = "pause";
-        if (status == STAT_IN_PROGRESS) {
+        if (status === STAT_IN_PROGRESS) {
             status = execute()
             setMessage();
         }

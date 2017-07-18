@@ -15,6 +15,7 @@ const IMM_MAX    = 15;
 const START_ADDR = 128;
 
 const OPS = {HALT:  { op: 0b000000, type: INS_TYPE.R0},
+             BREAK: { op: 0b111111, type: INS_TYPE.R0},
              NOT:   { op: 0b000001, type: INS_TYPE.R1},
              PUSH:  { op: 0b000010, type: INS_TYPE.R1},
              POP:   { op: 0b000011, type: INS_TYPE.R1},

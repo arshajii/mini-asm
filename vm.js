@@ -2,6 +2,7 @@
 
 /* opcodes */
 const OP_HALT  = 0b000000;
+const OP_BREAK = 0b111111;
 const OP_NOT   = 0b000001;
 const OP_PUSH  = 0b000010;
 const OP_POP   = 0b000011;
@@ -52,10 +53,11 @@ const CODE_MAX = 512;
 const STAT_IN_PROGRESS              = 1;
 const STAT_TERM_SUCCESS             = 2;
 const STAT_PAUSED                   = 3;
-const STAT_TERM_FAILURE_BAD_OPCODE  = 4;
-const STAT_TERM_FAILURE_MEM_BOUNDS  = 5;
-const STAT_TERM_FAILURE_MEM_ALIGN   = 6;
-const STAT_TERM_FAILURE_TOO_LONG    = 7;
+const STAT_BREAKPOINT               = 4;
+const STAT_TERM_FAILURE_BAD_OPCODE  = 5;
+const STAT_TERM_FAILURE_MEM_BOUNDS  = 6;
+const STAT_TERM_FAILURE_MEM_ALIGN   = 7;
+const STAT_TERM_FAILURE_TOO_LONG    = 8;
 
 const LOAD_SUCCESSFUL               = 0;
 const ERROR_EMPTY_CODE_STR          = -1;
@@ -80,6 +82,8 @@ function getErrorMessage(status) {
             return "Execution successful";
         case STAT_PAUSED:
             return "Paused";
+        case STAT_BREAKPOINT:
+            return "Breakpoint reached";
         case STAT_TERM_FAILURE_BAD_OPCODE:
             return "Unknown opcode encountered";
         case STAT_TERM_FAILURE_MEM_BOUNDS:
@@ -152,7 +156,7 @@ function loadCode(codeStr) {
 }
 
 function step() {
-    if (regFile[R_PC] < 0 || regFile[R_PC] >= MEM_SIZE) {
+    if (regFile[R_PC] < 0 || regFile[R_PC]+1 >= MEM_SIZE) {
         return STAT_TERM_FAILURE_MEM_BOUNDS;
     } else if (regFile[R_PC] % 2 !== 0) {
         return STAT_TERM_FAILURE_MEM_ALIGN;
@@ -216,12 +220,14 @@ function executeInstruction(ins) {
     switch (OP) {
         case OP_HALT:
             return STAT_TERM_SUCCESS;
+        case OP_BREAK:
+            return STAT_BREAKPOINT;
         case OP_NOT:
             regFile[R_D] = ~regFile[R_D];
             regChangeCallback(R_D);
             break;
         case OP_PUSH:
-            if (regFile[R_SP] < 0 || regFile[R_SP] >= MEM_SIZE)
+            if (regFile[R_SP] < 0 || regFile[R_SP]+1 >= MEM_SIZE)
                 return STAT_TERM_FAILURE_MEM_BOUNDS;
             if (regFile[R_SP] % 2 !== 0)
                 return STAT_TERM_FAILURE_MEM_ALIGN;
@@ -239,7 +245,7 @@ function executeInstruction(ins) {
             regFile[R_SP] += 2;
             regChangeCallback(R_SP);
 
-            if (regFile[R_SP] < 0 || regFile[R_SP] >= MEM_SIZE)
+            if (regFile[R_SP] < 0 || regFile[R_SP]+1 >= MEM_SIZE)
                 return STAT_TERM_FAILURE_MEM_BOUNDS;
             if (regFile[R_SP] % 2 !== 0)
                 return STAT_TERM_FAILURE_MEM_ALIGN;
@@ -321,7 +327,7 @@ function executeInstruction(ins) {
             regChangeCallback(R_ST);
             break;
         case OP_SW:
-            if (regFile[R_D] < 0 || regFile[R_D] >= MEM_SIZE)
+            if (regFile[R_D] < 0 || regFile[R_D]+1 >= MEM_SIZE)
                 return STAT_TERM_FAILURE_MEM_BOUNDS;
             if (regFile[R_D] % 2 !== 0)
                 return STAT_TERM_FAILURE_MEM_ALIGN;
@@ -332,7 +338,7 @@ function executeInstruction(ins) {
             memChangeCallback(regFile[R_D]+1);
             break;
         case OP_LW:
-            if (regFile[R_S] < 0 || regFile[R_S] >= MEM_SIZE)
+            if (regFile[R_S] < 0 || regFile[R_S]+1 >= MEM_SIZE)
                 return STAT_TERM_FAILURE_MEM_BOUNDS;
             if (regFile[R_S] % 2 !== 0)
                 return STAT_TERM_FAILURE_MEM_ALIGN;
