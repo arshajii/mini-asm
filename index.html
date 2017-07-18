@@ -140,6 +140,7 @@ label {
                         <ul class="dropdown-menu" role="menu" aria-labelledby="menu1">
                             <li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="loadSampleProgram(1);">factorial</a></li>
                             <li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="loadSampleProgram(2);">string reversal</a></li>
+                            <li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="loadSampleProgram(3);">functions</a></li>
                         </ul>
                     </div>
                     <br />
@@ -230,6 +231,21 @@ JMP   loop2\n\
 out2:\n\
 \n\
 HALT';
+
+const SAMPLE_PROGRAM3 = '# call "inc" function three times:\n\
+PUSH R26  # push program counter\n\
+JMP  inc  # call "inc" function\n\
+PUSH R26\n\
+JMP  inc\n\
+PUSH R26\n\
+JMP  inc\n\
+HALT\n\
+\n\
+inc:  # simple R1 increment function\n\
+ADDI R1 1\n\
+POP  R25      # pop program counter\n\
+ADDI R25 2    # add offset\n\
+MOV  R26 R25  # restore program counter';
 
 let status = 0;
 let lastCompiled = "";
@@ -484,6 +500,9 @@ function loadSampleProgram(which) {
             break;
         case 2:
             programSource = SAMPLE_PROGRAM2;
+            break;
+        case 3:
+            programSource = SAMPLE_PROGRAM3;
             break;
         default:
             programSource = "";

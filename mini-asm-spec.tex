@@ -324,6 +324,26 @@ out2:
 HALT
 \end{lstlisting}
 
+\subsection{Function emulation}
+This program shows how to emulate functions by \texttt{push}ing and \texttt{pop}ing $R_{PC}$.
+
+\begin{lstlisting}
+# call `inc' function three times:
+PUSH R26  # push program counter
+JMP  inc  # call `inc' function
+PUSH R26
+JMP  inc
+PUSH R26
+JMP  inc
+HALT
+
+inc:  # simple R1 increment function
+ADDI R1 1
+POP  R25      # pop program counter
+ADDI R25 2    # add offset
+MOV  R26 R25  # restore program counter
+\end{lstlisting}
+
 
 
 
