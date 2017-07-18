@@ -46,6 +46,10 @@ label {
 .fa-refresh {
     cursor: pointer;
 }
+
+.div-inline {
+    display: inline-block;
+}
 </style>
 
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
@@ -131,6 +135,13 @@ label {
                     <textarea rows="4" cols="50" id="source"></textarea><br />
                     <button onclick="compileSource();">compile</button>
                     <button onclick="pasteCompiled();">paste to program</button>
+                    <div class="dropdown div-inline">
+                        <button class="btn btn-default dropdown-toggle btn-sm" type="button" id="menu1" data-toggle="dropdown">sample programs<span class="caret"></span></button>
+                        <ul class="dropdown-menu" role="menu" aria-labelledby="menu1">
+                            <li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="loadSampleProgram(1);">factorial</a></li>
+                            <li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="loadSampleProgram(2);">string reversal</a></li>
+                        </ul>
+                    </div>
                     <br />
                     <br />
                     <div id="compilerMessage"></div>
@@ -161,6 +172,64 @@ const ICON_PAUSED   = '<i class="fa fa-pause-circle"></i>';
 
 const CLASS_FILLED   = "fa fa-circle"
 const CLASS_UNFILLED = "fa fa-circle-o"
+
+const SAMPLE_PROGRAM1 = '# Factorial program\n\
+# Compiled: 500050275061244350803c406c06288358416bf624443c616c0454616bea24220000\n\
+\n\
+MOVI  R0 0  # constant 0\n\
+MOVI  R1 7  # number to factorial-ize\n\
+\n\
+MOVI  R3 1  # counter to target\n\
+MOV   R2 R3 # holds running factorial\n\
+\n\
+fact:\n\
+MOVI  R4 0  # result of this multiplication\n\
+\n\
+mul:  # mul R2 R3; destroy R2\n\
+CMP   R2 R0\n\
+JMPEQ out_mul\n\
+ADD   R4 R3\n\
+SUBI  R2 1\n\
+JMP   mul\n\
+out_mul:\n\
+MOV   R2 R4\n\
+\n\
+CMP   R3 R1\n\
+JMPEQ out_fact\n\
+ADDI  R3 1\n\
+JMP   fact\n\
+\n\
+out_fact:\n\
+mov   R1 R2\n\
+\n\
+HALT';
+
+const SAMPLE_PROGRAM2 = '# String reversal program\n\
+# Compiled: 5000502014204c413c406c0454216bf410203c206c0458216bf60000\n\
+\n\
+MOVI  R0 0  # constant 0\n\
+MOVI  R1 0  # pointer into memory\n\
+\n\
+# read stdin\n\
+loop1:\n\
+READ  R1\n\
+LB    R2 R1\n\
+CMP   R2 R0\n\
+JMPEQ out1\n\
+ADDI  R1 1\n\
+JMP   loop1\n\
+out1:\n\
+\n\
+# write reverse to stdout\n\
+loop2:\n\
+PRINT R1\n\
+CMP   R1 R0\n\
+JMPEQ out2\n\
+SUBI  R1 1\n\
+JMP   loop2\n\
+out2:\n\
+\n\
+HALT';
 
 let status = 0;
 let lastCompiled = "";
@@ -405,6 +474,23 @@ function compileSource() {
 
 function pasteCompiled() {
     document.getElementById("code").value = lastCompiled;
+}
+
+function loadSampleProgram(which) {
+    let programSource;
+    switch (which) {
+        case 1:
+            programSource = SAMPLE_PROGRAM1;
+            break;
+        case 2:
+            programSource = SAMPLE_PROGRAM2;
+            break;
+        default:
+            programSource = "";
+            break;
+    }
+
+    document.getElementById("source").value = programSource;
 }
 </script>
 
